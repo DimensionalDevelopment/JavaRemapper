@@ -21,9 +21,11 @@ public class SimpleRemapper extends Remapper {
         String newName = mapping.getField(owner, name, desc);
         if (newName != null) return newName;
 
-        for (String superClass : inheritanceProvider.getAllSuperclasses(owner)) {
-            newName = mapping.getField(superClass, name, desc);
-            if (newName != null) return newName;
+        for (String superclass : inheritanceProvider.getAllSuperclasses(owner)) {
+            if (inheritanceProvider.getInheritableFields(superclass).contains(new MemberRef(name, desc))) {
+                newName = mapping.getField(superclass, name, desc);
+                if (newName != null) return newName;
+            }
         }
         return name;
     }
@@ -33,9 +35,11 @@ public class SimpleRemapper extends Remapper {
         String newName = mapping.getMethod(owner, name, desc);
         if (newName != null) return newName;
 
-        for (String superClass : inheritanceProvider.getAllSuperclasses(owner)) {
-            newName = mapping.getMethod(superClass, name, desc);
-            if (newName != null) return newName;
+        for (String superclass : inheritanceProvider.getAllSuperclasses(owner)) {
+            if (inheritanceProvider.getInheritableMethods(superclass).contains(new MemberRef(name, desc))) {
+                newName = mapping.getMethod(superclass, name, desc);
+                if (newName != null) return newName;
+            }
         }
         return name;
     }
