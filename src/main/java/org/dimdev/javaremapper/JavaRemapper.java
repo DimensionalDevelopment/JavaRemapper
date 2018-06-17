@@ -25,6 +25,10 @@ public class JavaRemapper {
     }
 
     public void remapJar(File inputFile, File remapTarget) throws IOException {
+        remapJar(inputFile, remapTarget, makeInheritanceProvider(inputFile));
+    }
+
+    public static InheritanceProvider makeInheritanceProvider(File inputFile) throws IOException {
         // Make the inheritance map
         InheritanceMapper inheritanceMapper = new InheritanceMapper();
         try (JarFile jar = new JarFile(inputFile)) {
@@ -40,9 +44,12 @@ public class JavaRemapper {
                 }
             }
         }
+        return inheritanceMapper;
+    }
 
+    public void remapJar(File inputFile, File remapTarget, InheritanceProvider inheritanceProvider) throws IOException {
         // Initialize the remapper using the mapping and inheritance provider
-        SimpleRemapper remapper = new SimpleRemapper(mapping, inheritanceMapper);
+        SimpleRemapper remapper = new SimpleRemapper(mapping, inheritanceProvider);
 
         // Copy jar classes, remapping them if necessary
         try (JarFile jar = new JarFile(inputFile);
