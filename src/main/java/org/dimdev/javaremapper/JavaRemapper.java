@@ -11,6 +11,8 @@ import org.objectweb.asm.tree.*;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Objects;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -98,28 +100,52 @@ public class JavaRemapper {
 
         // Rename local variables and add parameters
         for (MethodNode method : clazz.methods) {
+            boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
             int paramCount = Type.getArgumentsAndReturnSizes(method.desc) >> 2;
+
+            // Add parameter names
             if (method.parameters == null) {
                 method.parameters = new ArrayList<>();
-                for (int index = 0; index < paramCount - 1; index++) { // TODO: implicit this?
+                for (int index = 0; index < (isStatic ? paramCount : paramCount - 1); index++) { // TODO: implicit this?
                     method.parameters.add(new ParameterNode(mapping.mapParameter(name, method.name, method.desc, index), 0));
                 }
             }
 
             int index = 0;
+            HashMap<Integer, String> localNames = new HashMap<>();
+            int varSuffix = 0;
             if (method.localVariables != null) for (LocalVariableNode local : method.localVariables) {
-                index++;
-                if (local.name.equals("this")) continue;
-                if (index < paramCount) {
-                    local.name = mapping.mapParameter(name, method.name, method.desc, (method.access & Opcodes.ACC_STATIC) != 0 ? index : index - 1);
+                // Name the local
+                if (!isStatic && index == 0) {
+                    local.name = "this";
+                } else if (index < paramCount) {
+                    local.name = method.parameters.get(isStatic ? index : index - 1).name;
                 } else {
                     local.name = mapping.getLocal(name, method.name, method.desc, index);
-                    if (local.name == null) local.name = "var"; // TODO
-                    if (local.start == local.end) {
-                        local.start = (LabelNode) method.instructions.getFirst();
-                        local.end = (LabelNode) method.instructions.getFirst();
+
+                    // No mapping exists for that local, use name of previous local with
+                    // same index, desc and signature, or assign a unique name.
+                    int localHash = Objects.hash(local.index, local.desc, local.signature);
+                    if (local.name == null) {
+                        String localName = localNames.get(localHash);
+                        if (localName != null) {
+                            local.name = localName;
+                        } else {
+                            local.name = "var" + varSuffix++;
+                            localNames.put(localHash, local.name);
+                        }
+                    } else {
+                        localNames.put(localHash, local.name);
                     }
                 }
+
+                // Fix broken local start/end
+                if (local.start == local.end) { // TODO: Why does this happen?
+                    local.start = (LabelNode) method.instructions.getFirst();
+                    local.end = (LabelNode) method.instructions.getFirst();
+                }
+
+                index++;
             }
         }
 
