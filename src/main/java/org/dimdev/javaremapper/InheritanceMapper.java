@@ -1,10 +1,9 @@
 package org.dimdev.javaremapper;
 
-import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.FieldVisitor;
-import org.objectweb.asm.MethodVisitor;
-import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.*;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 
 public class InheritanceMapper extends ClassVisitor implements InheritanceProvider {
@@ -23,8 +22,9 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
         super.visit(version, access, name, signature, superName, interfaces);
 
         Set<String> inheritanceSet = inheritanceMap.computeIfAbsent(name, k -> new HashSet<>());
-        inheritanceSet.add(superName);
+        if (superName != null) inheritanceSet.add(superName); // java/lang/Object has a null superclass
         inheritanceSet.addAll(Arrays.asList(interfaces));
+        if ((access & Opcodes.ACC_ENUM) != 0) inheritanceSet.add("java/lang/Enum");
         className = name;
     }
 
@@ -48,7 +48,15 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
 
     @Override
     public Set<String> getSuperclasses(String name) {
-        return inheritanceMap.getOrDefault(name, Collections.emptySet());
+        Set<String> result = inheritanceMap.get(name);
+        if (result == null) {
+            inheritanceMap.put(name, new HashSet<>());
+            inheritableFields.put(name, new HashSet<>());
+            inheritableMethods.put(name, new HashSet<>());
+            visitClasspathClass(name);
+            result = inheritanceMap.get(name);
+        }
+        return result;
     }
 
     @Override
@@ -71,11 +79,37 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
 
     @Override
     public Set<MemberRef> getInheritableFields(String name) {
-        return inheritableFields.getOrDefault(name, Collections.emptySet());
+        Set<MemberRef> result = inheritableFields.get(name);
+        if (result == null) {
+            inheritanceMap.put(name, new HashSet<>());
+            inheritableFields.put(name, new HashSet<>());
+            inheritableMethods.put(name, new HashSet<>());
+            visitClasspathClass(name);
+            result = inheritableFields.get(name);
+        }
+        return result;
     }
 
     @Override
     public Set<MemberRef> getInheritableMethods(String name) {
-        return inheritableMethods.getOrDefault(name, Collections.emptySet());
+        Set<MemberRef> result = inheritableMethods.get(name);
+        if (result == null) {
+            inheritanceMap.put(name, new HashSet<>());
+            inheritableFields.put(name, new HashSet<>());
+            inheritableMethods.put(name, new HashSet<>());
+            visitClasspathClass(name);
+            result = inheritableMethods.get(name);
+        }
+        return result;
+    }
+
+    private void visitClasspathClass(String name) {
+        try (InputStream inputStream = InheritanceMapper.class.getClassLoader().getResourceAsStream(name + ".class")) {
+            if (inputStream == null) return;
+            ClassReader reader = new ClassReader(inputStream);
+            reader.accept(this, 0);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
