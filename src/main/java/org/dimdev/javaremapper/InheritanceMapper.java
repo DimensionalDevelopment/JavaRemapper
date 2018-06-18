@@ -21,7 +21,11 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
     public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
         super.visit(version, access, name, signature, superName, interfaces);
 
-        Set<String> inheritanceSet = inheritanceMap.computeIfAbsent(name, k -> new HashSet<>());
+        inheritanceMap.put(name, new HashSet<>());
+        inheritableFields.put(name, new HashSet<>());
+        inheritableMethods.put(name, new HashSet<>());
+
+        Set<String> inheritanceSet = inheritanceMap.get(name);
         if (superName != null) inheritanceSet.add(superName); // java/lang/Object has a null superclass
         inheritanceSet.addAll(Arrays.asList(interfaces));
         if ((access & Opcodes.ACC_ENUM) != 0) inheritanceSet.add("java/lang/Enum");
@@ -50,9 +54,6 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
     public Set<String> getSuperclasses(String name) {
         Set<String> result = inheritanceMap.get(name);
         if (result == null) {
-            inheritanceMap.put(name, new HashSet<>());
-            inheritableFields.put(name, new HashSet<>());
-            inheritableMethods.put(name, new HashSet<>());
             visitClasspathClass(name);
             result = inheritanceMap.get(name);
         }
@@ -81,9 +82,6 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
     public Set<MemberRef> getInheritableFields(String name) {
         Set<MemberRef> result = inheritableFields.get(name);
         if (result == null) {
-            inheritanceMap.put(name, new HashSet<>());
-            inheritableFields.put(name, new HashSet<>());
-            inheritableMethods.put(name, new HashSet<>());
             visitClasspathClass(name);
             result = inheritableFields.get(name);
         }
@@ -94,9 +92,6 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
     public Set<MemberRef> getInheritableMethods(String name) {
         Set<MemberRef> result = inheritableMethods.get(name);
         if (result == null) {
-            inheritanceMap.put(name, new HashSet<>());
-            inheritableFields.put(name, new HashSet<>());
-            inheritableMethods.put(name, new HashSet<>());
             visitClasspathClass(name);
             result = inheritableMethods.get(name);
         }
@@ -104,6 +99,10 @@ public class InheritanceMapper extends ClassVisitor implements InheritanceProvid
     }
 
     private void visitClasspathClass(String name) {
+        inheritanceMap.put(name, new HashSet<>());
+        inheritableFields.put(name, new HashSet<>());
+        inheritableMethods.put(name, new HashSet<>());
+
         try (InputStream inputStream = InheritanceMapper.class.getClassLoader().getResourceAsStream(name + ".class")) {
             if (inputStream == null) return;
             ClassReader reader = new ClassReader(inputStream);
