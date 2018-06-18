@@ -108,14 +108,19 @@ public class JavaRemapper {
         // Rename local variables and add parameters
         for (MethodNode method : clazz.methods) {
             boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
-            int paramCount = Type.getArgumentsAndReturnSizes(method.desc) >> 2;
+            int paramCount = Type.getArgumentTypes(method.desc).length;
 
             // Add parameter names
             if (method.parameters == null) {
                 method.parameters = new ArrayList<>();
-                for (int index = 0; index < (isStatic ? paramCount : paramCount - 1); index++) { // TODO: implicit this?
+                for (int index = 0; index < paramCount; index++) { // TODO: implicit this?
                     method.parameters.add(new ParameterNode(mapping.mapParameter(name, method.name, method.desc, index), 0));
                 }
+            }
+
+            // Remove empty LVTs
+            if (method.localVariables != null && method.localVariables.size() == 0) {
+                method.localVariables = null;
             }
 
             int index = 0;
@@ -153,6 +158,28 @@ public class JavaRemapper {
                 }
 
                 index++;
+            } else {
+                // Generate LVT based on parameters, no LVT but not parameter list breaks Fernflower
+                method.localVariables = new ArrayList<>();
+
+                // Get the label node at the start of the method, or add it if it's missing
+                if (!(method.instructions.getFirst() instanceof LabelNode)) {
+                    method.instructions.insert(new LabelNode());
+                }
+                LabelNode firstLabel = (LabelNode) method.instructions.getFirst();
+
+                // Add the implicit this parameter
+                if (!isStatic) {
+                    method.localVariables.add(new LocalVariableNode("this", "L" + clazz.name + ";", null, firstLabel, firstLabel, 0));
+                }
+
+                // Add parameters to the LVT
+                Type[] paramTypes = Type.getArgumentTypes(method.desc);
+                int i = 0;
+                for (ParameterNode param : method.parameters) {
+                    method.localVariables.add(new LocalVariableNode(param.name, paramTypes[i].getDescriptor(), null, firstLabel, firstLabel, isStatic ? i : i + 1));
+                    i++;
+                }
             }
         }
 
