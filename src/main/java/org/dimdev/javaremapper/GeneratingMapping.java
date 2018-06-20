@@ -1,7 +1,5 @@
 package org.dimdev.javaremapper;
 
-import org.objectweb.asm.Type;
-
 import java.util.Set;
 
 public class GeneratingMapping extends Mapping {
@@ -61,7 +59,7 @@ public class GeneratingMapping extends Mapping {
         // Don't remap inherited methods, their name is inherited from the parent's mapping
         for (String superclass : inheritanceProvider.getAllSuperclasses(className)) {
             for (MemberRef ref : inheritanceProvider.getInheritableMethods(superclass)) {
-                if (methodName.equals(ref.name) && methodDescriptorOverrides(methodDescriptor, ref.descriptor)) {
+                if (methodName.equals(ref.name) && TypeUtil.methodDescriptorOverrides(inheritanceProvider, methodDescriptor, ref.descriptor)) {
                     return null;
                 }
             }
@@ -73,32 +71,5 @@ public class GeneratingMapping extends Mapping {
             addMethod(className, methodName, methodDescriptor, result);
         }
         return result;
-    }
-
-    private boolean methodDescriptorOverrides(String descriptor1, String descriptor2) {
-        // Check return types
-        Type ret1 = Type.getReturnType(descriptor1);
-        Type ret2 = Type.getReturnType(descriptor2);
-        if (!ret1.equals(ret2) && !inheritanceProvider.getAllSuperclasses(ret1.getClassName()).contains(ret2.getClassName())) {
-            return false;
-        }
-
-        // Check argument types
-        Type[] args1 = Type.getArgumentTypes(descriptor1);
-        Type[] args2 = Type.getArgumentTypes(descriptor2);
-
-        if (args1.length != args2.length) return false;
-
-        for (int i = 0; i < args1.length; i++) {
-            String class1 = args1[i].getClassName();
-            String class2 = args2[i].getClassName();
-
-            // Arguments must be the identical in Java, not supertypes
-            if (!class1.equals(class2)) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

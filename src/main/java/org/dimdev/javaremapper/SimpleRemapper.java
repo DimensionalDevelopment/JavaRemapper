@@ -42,15 +42,17 @@ public class SimpleRemapper extends Remapper {
         String newName = mapping.getMethod(owner, name, desc);
 
         for (String superclass : inheritanceProvider.getAllSuperclasses(owner)) {
-            if (inheritanceProvider.getInheritableMethods(superclass).contains(new MemberRef(name, desc))) {
-                String inheritedNewName = mapping.getMethod(superclass, name, desc);
-                if (inheritedNewName != null) {
-                    if (newName != null && !inheritedNewName.equals(newName)) {
-                        System.err.println("Method inheritance problem: " + owner + "." + name + desc +
-                                           " inherits " + superclass + "." + name + desc +
-                                           " but " + newName + " != " + inheritedNewName);
+            for (MemberRef ref : inheritanceProvider.getInheritableMethods(superclass)) {
+                if (name.equals(ref.name) && TypeUtil.methodDescriptorOverrides(inheritanceProvider, desc, ref.descriptor)) {
+                    String inheritedNewName = mapping.getMethod(superclass, name, desc);
+                    if (inheritedNewName != null) {
+                        if (newName != null && !inheritedNewName.equals(newName)) {
+                            System.err.println("Method inheritance problem: " + owner + "." + name + desc +
+                                               " inherits " + superclass + "." + name + desc +
+                                               " but " + newName + " != " + inheritedNewName);
+                        }
+                        return inheritedNewName;
                     }
-                    return inheritedNewName;
                 }
             }
         }
