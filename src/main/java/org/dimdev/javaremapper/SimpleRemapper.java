@@ -19,28 +19,42 @@ public class SimpleRemapper extends Remapper {
     @Override
     public String mapFieldName(String owner, String name, String desc) {
         String newName = mapping.getField(owner, name, desc);
-        if (newName != null) return newName;
 
         for (String superclass : inheritanceProvider.getAllSuperclasses(owner)) {
             if (inheritanceProvider.getInheritableFields(superclass).contains(new MemberRef(name, desc))) {
-                newName = mapping.getField(superclass, name, desc);
-                if (newName != null) return newName;
+                String inheritedNewName = mapping.getField(superclass, name, desc);
+                if (inheritedNewName != null) {
+                    if (newName != null && !inheritedNewName.equals(newName)) {
+                        System.err.println("Field inheritance problem: " + owner + "." + name + " " + desc +
+                                           " inherits " + superclass + "." + name + " " + desc +
+                                           " but " + newName + " != " + inheritedNewName);
+                    }
+                    return inheritedNewName;
+                }
             }
         }
+        if (newName != null) return newName;
         return name;
     }
 
     @Override
     public String mapMethodName(String owner, String name, String desc) {
         String newName = mapping.getMethod(owner, name, desc);
-        if (newName != null) return newName;
 
         for (String superclass : inheritanceProvider.getAllSuperclasses(owner)) {
             if (inheritanceProvider.getInheritableMethods(superclass).contains(new MemberRef(name, desc))) {
-                newName = mapping.getMethod(superclass, name, desc);
-                if (newName != null) return newName;
+                String inheritedNewName = mapping.getMethod(superclass, name, desc);
+                if (inheritedNewName != null) {
+                    if (newName != null && !inheritedNewName.equals(newName)) {
+                        System.err.println("Method inheritance problem: " + owner + "." + name + desc +
+                                           " inherits " + superclass + "." + name + desc +
+                                           " but " + newName + " != " + inheritedNewName);
+                    }
+                    return inheritedNewName;
+                }
             }
         }
+        if (newName != null) return newName;
         return name;
     }
 }
