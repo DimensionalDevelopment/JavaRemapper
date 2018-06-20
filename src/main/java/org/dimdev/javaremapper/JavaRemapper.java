@@ -111,7 +111,7 @@ public class JavaRemapper {
             int paramCount = Type.getArgumentTypes(method.desc).length;
 
             // Add parameter names
-            if (method.parameters == null) {
+            if (method.parameters == null || method.parameters.size() < paramCount) {
                 method.parameters = new ArrayList<>();
                 for (int index = 0; index < paramCount; index++) { // TODO: implicit this?
                     method.parameters.add(new ParameterNode(mapping.mapParameter(name, method.name, method.desc, index), 0));
@@ -119,7 +119,10 @@ public class JavaRemapper {
             }
 
             // Remove empty LVTs
-            if (method.localVariables != null && method.localVariables.size() == 0) {
+            if (method.localVariables != null && method.localVariables.size() < (isStatic ? paramCount : paramCount + 1)) {
+                if (method.localVariables.size() != 0 ) {
+                    System.out.println("WARNING: Removed non-empty LVT (size " + method.localVariables.size() + ")");
+                }
                 method.localVariables = null;
             }
 
@@ -130,7 +133,7 @@ public class JavaRemapper {
                 // Name the local
                 if (!isStatic && index == 0) {
                     local.name = "this";
-                } else if (index < paramCount) {
+                } else if (index < (isStatic ? paramCount : paramCount + 1)) {
                     local.name = method.parameters.get(isStatic ? index : index - 1).name;
                 } else {
                     local.name = mapping.getLocal(name, method.name, method.desc, index);
